@@ -6,8 +6,8 @@ const bit<8>  UDP_PROTOCOL = 0x11;
 const bit<16> TYPE_IPV4 = 0x800;
 const bit<16> TYPE_IPV6 = 0x700;
 const bit<16> TYPE_CONSENSUS = 0x600;
-const bit<8> PROTOCOL_UDP = 0xFF;
-const bit<8> PROTOCOL_TCP = 0xFF;
+const bit<8> PROTOCOL_UDP = 0x12;
+const bit<8> PROTOCOL_TCP = 0x11;
 
 #define MAX_HOPS 9
 
@@ -18,8 +18,7 @@ const bit<8> PROTOCOL_TCP = 0xFF;
 typedef bit<9>  egressSpec_t;
 typedef bit<48> macAddr_t;
 typedef bit<32> ip4Addr_t;
-typedef bit<32> switchID_t;
-typedef bit<32> qdepth_t;
+typedef bit<128> ip6Addr_t;
 
 header ethernet_t {
     macAddr_t dstAddr;
@@ -30,8 +29,10 @@ header ethernet_t {
 
 header consensus_t {
     bit<16> proto_id;
+    bit<8>  allow_count;
+    bit<8>  drop_count;
+    bit<8>  abstain_count;
 }
-
 
 
 header ipv4_t {
@@ -58,22 +59,31 @@ header ipv6_t {
     bit<16>   payload_length;
     bit<8>    next_header;
     bit<8>    hop_limit;
-    bit<128>  srcAddr;
-    bit<128>  dstAddr;
+    ip6Addr_t  srcAddr;
+    ip6Addr_t  dstAddr;
 }
 
 
 header udp_t {
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<16> length;
+    bit<16> checksum;
 }
 
 header tcp_t {
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<32> seqNo;
+    bit<32> ackNo;
+    bit<4>  dataOffset;
+    bit<3>  reserved;
+    bit<9>  flags;
+    bit<16> window;
+    bit<16> checksum;
+    bit<16> urgentPtr;
 }
 
-
-header switch_t {
-    switchID_t  swid;
-    qdepth_t    qdepth;
-}
 
 struct ingress_metadata_t {
     bit<16>  count;
@@ -83,9 +93,14 @@ struct parser_metadata_t {
     bit<16>  remaining;
 }
 
+struct egress_metadata_t {
+    bool is_egress_node;
+}
+
 struct metadata {
     ingress_metadata_t   ingress_metadata;
     parser_metadata_t   parser_metadata;
+    egress_metadata_t egress_metadata;
 }
 
 struct headers {
@@ -143,9 +158,9 @@ parser MyParser(packet_in packet,
     state parse_consensus {
     	packet.extract(hdr.consensus);
     	transition select(hdr.consensus.proto_id) {
-   	    TYPE_IPV4: parse_ipv4;
-	    TYPE_IPV6: parse_ipv6;
-	    default: accept;
+       	    TYPE_IPV4: parse_ipv4;
+	        TYPE_IPV6: parse_ipv6;
+	        default: accept;
     	}
     }
     
@@ -177,33 +192,159 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
-    action drop() {
-        mark_to_drop(standard_metadata);
+    
+    action ethernet_forward(egressSpec_t port) {
+        standard_metadata.egress_spec = port;
     }
 
     action ipv4_forward(egressSpec_t port) {
         standard_metadata.egress_spec = port;
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
+    
+    action ipv6_forward(egressSpec_t port) {
+        standard_metadata.egress_spec = port;
+        hdr.ipv6.hop_limit = hdr.ipv6.hop_limit - 1;
+    }
+    
+    action udp_forward(egressSpec_t port) {
+    	standard_metadata.egress_spec = port;
+    }
+    
+    action tcp_forward(egressSpec_t port) {
+    	standard_metadata.egress_spec = port;
+    }
+    
+    action vote_allow() {
+        hdr.consensus.allow_count = hdr.consensus.allow_count + 1;
+    }
 
+    action vote_drop() {
+        hdr.consensus.drop_count = hdr.consensus.drop_count + 1;
+    }
+    
+    action vote_abstain() {
+        hdr.consensus.abstain_count = hdr.consensus.abstain_count + 1;
+    }
+    
+    action set_counters_to_zero() {
+        hdr.consensus.allow_count = 0;
+        hdr.consensus.drop_count = 0;
+        hdr.consensus.abstain_count = 0;
+    }
+    
+    
+    table ethernet_table {
+        key = {
+            hdr.ethernet.dstAddr: exact;
+        }
+        actions = {
+            ethernet_forward;
+            vote_allow;
+            vote_drop;
+            vote_abstain;
+            NoAction;
+        }
+    }
+        
     table ipv4_lpm {
         key = {
             hdr.ipv4.dstAddr: lpm;
         }
         actions = {
             ipv4_forward;
-            drop;
+            vote_allow;
+            vote_drop;
+            vote_abstain;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+    
+    table ipv6_lpm {
+        key = {
+            hdr.ipv6.dstAddr: lpm;
+        }
+        actions = {
+            ipv6_forward;
+            vote_allow;
+            vote_drop;
+            vote_abstain;
             NoAction;
         }
         size = 1024;
         default_action = NoAction();
     }
 
+    table udp_table {
+        key = {
+            hdr.udp.dstPort: exact;
+        }
+        actions = {
+            udp_forward;
+            vote_allow;
+            vote_drop;
+            vote_abstain;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+
+    table tcp_table {
+        key = {
+            hdr.tcp.dstPort: exact;
+        }
+        actions = {
+            tcp_forward;
+            vote_allow;
+            vote_drop;
+            vote_abstain;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+    
+    table is_ingress_table {
+        key = {
+            // matcha sugli indirizzi: 
+            // è un ingress se il source è un l'host
+            // direttamente attaccato allo switch
+            hdr.ethernet.srcAddr: exact;
+        }
+        actions = {
+            set_counters_to_zero;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+    
+
     apply {
-        if (hdr.ipv4.isValid()) {
-            ipv4_lpm.apply();
+        if(hdr.ethernet.isValid()) {
+            is_ingress_table.apply();
+            ethernet_table.apply();
+            if (hdr.ipv4.isValid()) {
+                ipv4_lpm.apply();
+                if (hdr.udp.isValid()) {
+                    udp_table.apply();
+                } else if (hdr.tcp.isValid()) {
+                    tcp_table.apply();
+                }
+            } else if (hdr.ipv6.isValid()) {
+                ipv6_lpm.apply();
+                if (hdr.udp.isValid()) {
+                    udp_table.apply();
+                } else if (hdr.tcp.isValid()) {
+                    tcp_table.apply();
+                }
+            }
         }
     }
+
 }
 
 /*************************************************************************
@@ -213,8 +354,35 @@ control MyIngress(inout headers hdr,
 control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-
-    apply {  }
+                 
+    mark_as_egress() {
+        meta.egress_metadata.is_egress_node = true;
+    }
+	
+	
+    table is_egress_table {
+        key = {
+            // matcha sugli indirizzi: 
+            // è un egress se la destinazione è un l'host
+            // direttamente attaccato allo switch
+            hdr.ethernet.dstAddr: exact;
+        }
+        actions = {
+            mark_as_egress;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+    
+	apply {  
+	    if (hdr.ethernet.isValid()) {
+		    is_egress_table.apply();
+		    if (hdr.consensus.allow_count <= hdr.consensus.drop_count && meta.egress_metadata.is_egress_node) {
+		        mark_to_drop(standard_metadata);
+		    }
+		}
+    }
 }
 
 /*************************************************************************
@@ -248,9 +416,11 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
 control MyDeparser(packet_out packet, in headers hdr) {
     apply {
         packet.emit(hdr.ethernet);
+        packet.emit(hdr.consensus);
         packet.emit(hdr.ipv4);
-	    packet.emit(hdr.ipv6);
-        /* TODO: emit consensus header */
+        packet.emit(hdr.ipv6);
+        packet.emit(hdr.udp);
+        packet.emit(hdr.tcp);
     }
 }
 

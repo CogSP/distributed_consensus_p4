@@ -240,9 +240,6 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             ethernet_forward;
-            vote_allow;
-            vote_drop;
-            vote_abstain;
             NoAction;
         }
     }
@@ -253,9 +250,6 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             ipv4_forward;
-            vote_allow;
-            vote_drop;
-            vote_abstain;
             NoAction;
         }
         size = 1024;
@@ -268,9 +262,6 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             ipv6_forward;
-            vote_allow;
-            vote_drop;
-            vote_abstain;
             NoAction;
         }
         size = 1024;
@@ -283,9 +274,6 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             udp_forward;
-            vote_allow;
-            vote_drop;
-            vote_abstain;
             NoAction;
         }
         size = 1024;
@@ -298,9 +286,6 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             tcp_forward;
-            vote_allow;
-            vote_drop;
-            vote_abstain;
             NoAction;
         }
         size = 1024;
@@ -322,24 +307,100 @@ control MyIngress(inout headers hdr,
         default_action = NoAction();
     }
     
-
+    table l2_voting {
+        key = {
+            hdr.ethernet.srcAddr: exact;
+        }
+        actions = {
+            vote_allow;
+            vote_drop;
+            vote_abstain;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+    
+    table l3_ipv4_voting {
+        key = {
+            hdr.ipv4.srcAddr: lpm;
+        }
+        actions = {
+            vote_allow;
+            vote_drop;
+            vote_abstain;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+    
+    table l3_ipv6_voting {
+        key = {
+            hdr.ipv6.srcAddr: lpm;
+        }
+        actions = {
+            vote_allow;
+            vote_drop;
+            vote_abstain;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+    
+    table l4_udp_voting {
+        key = {
+            hdr.udp.srcPort: exact;
+        }
+        actions = {
+            vote_allow;
+            vote_drop;
+            vote_abstain;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+    
+    table l4_tcp_voting {
+        key = {
+            hdr.tcp.srcPort: exact;
+        }
+        actions = {
+            vote_allow;
+            vote_drop;
+            vote_abstain;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+   
     apply {
         if(hdr.ethernet.isValid()) {
             is_ingress_table.apply();
             ethernet_table.apply();
+            l2_voting.apply();
             if (hdr.ipv4.isValid()) {
                 ipv4_lpm.apply();
+                l3_ipv4_voting.apply();
                 if (hdr.udp.isValid()) {
                     udp_table.apply();
+                    l4_udp_voting.apply();
                 } else if (hdr.tcp.isValid()) {
                     tcp_table.apply();
+                    l4_tcp_voting.apply();
                 }
             } else if (hdr.ipv6.isValid()) {
                 ipv6_lpm.apply();
+                l3_ipv6_voting.apply();
                 if (hdr.udp.isValid()) {
                     udp_table.apply();
+                    l4_udp_voting.apply();
                 } else if (hdr.tcp.isValid()) {
                     tcp_table.apply();
+                    l4_tcp_voting.apply();
                 }
             }
         }
@@ -355,16 +416,13 @@ control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
                  
-    mark_as_egress() {
+    action mark_as_egress() {
         meta.egress_metadata.is_egress_node = true;
     }
 	
 	
     table is_egress_table {
         key = {
-            // matcha sugli indirizzi: 
-            // è un egress se la destinazione è un l'host
-            // direttamente attaccato allo switch
             hdr.ethernet.dstAddr: exact;
         }
         actions = {
@@ -378,7 +436,7 @@ control MyEgress(inout headers hdr,
 	apply {  
 	    if (hdr.ethernet.isValid()) {
 		    is_egress_table.apply();
-		    if (hdr.consensus.allow_count <= hdr.consensus.drop_count && meta.egress_metadata.is_egress_node) {
+		    if (hdr.consensus.allow_count <= hdr.consensus.drop_count + hdr.consensus.abstain_count && meta.egress_metadata.is_egress_node) {
 		        mark_to_drop(standard_metadata);
 		    }
 		}

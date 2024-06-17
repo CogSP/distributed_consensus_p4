@@ -1,4 +1,15 @@
 table_add MyIngress.ipv4_lpm ipv4_forward 10.0.0.1/32 => 1
 table_add MyIngress.ipv4_lpm ipv4_forward 10.0.0.2/32 => 2
 table_add MyIngress.ipv4_lpm ipv4_forward 10.0.1.3/32 => 3
-table_add MyIngress.ipv4_lpm ipv4_forward 10.0.2.4/32 => 4
+table_add MyIngress.ipv4_lpm ipv4_forward 10.0.2.4/32 => 3
+
+table_add MyIngress.is_ingress_table set_counters_to_zero 00:01:02:03:04:01 =>
+table_add MyIngress.is_ingress_table set_counters_to_zero 00:01:02:03:04:02 =>
+
+table_add MyEgress.is_egress_table mark_as_egress 00:01:02:03:04:01 =>
+table_add MyEgress.is_egress_table mark_as_egress 00:01:02:03:04:02 =>
+
+table_add MyIngress.l3_ipv4_voting vote_allow 10.0.0.1/24 =>
+table_add MyIngress.l3_ipv4_voting vote_allow 10.0.0.2/24 => 
+table_add MyIngress.l3_ipv4_voting vote_allow 10.0.1.3/24 =>
+table_add MyIngress.l3_ipv4_voting vote_abstain 10.0.2.4/24 =>

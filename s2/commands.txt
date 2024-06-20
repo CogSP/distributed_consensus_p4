@@ -1,10 +1,14 @@
-table_add MyIngress.ipv4_lpm ipv4_forward 10.0.0.1/24 => 1
-table_add MyIngress.ipv4_lpm ipv4_forward 10.0.0.2/24 => 1
-table_add MyIngress.ipv4_lpm ipv4_forward 10.0.1.3/24 => 3
-table_add MyIngress.ipv4_lpm ipv4_forward 10.0.2.4/24 => 3
+table_add MyIngress.ipv4_forwarding ipv4_forward 192.168.0.1/32 => 1
+table_add MyIngress.ipv4_forwarding ipv4_forward 192.168.0.2/32 => 1
+table_add MyIngress.ipv4_forwarding ipv4_forward 192.168.0.3/32 => 3
+table_add MyIngress.ipv4_forwarding ipv4_forward 192.168.0.4/32 => 3
+table_add MyIngress.ipv6_forwarding ipv6_forward 2001::1/128 => 1
+table_add MyIngress.ipv6_forwarding ipv6_forward 2001::2/128 => 1
+table_add MyIngress.ipv6_forwarding ipv6_forward 2001::3/128 => 3
+table_add MyIngress.ipv6_forwarding ipv6_forward 2001::4/128 => 3
 
+table_add MyIngress.l3_ipv6_voting accept 2001::3 =>
+table_add MyIngress.l3_ipv6_voting accept 2001::4 =>
 
-table_add MyIngress.l2_voting vote_allow 00:01:02:03:04:01 =>
-table_add MyIngress.l2_voting vote_allow 00:01:02:03:04:02 =>
-table_add MyIngress.l2_voting vote_allow 00:01:02:03:04:03 =>
-table_add MyIngress.l2_voting vote_drop 00:01:02:03:04:04 =>
+table_add MyIngress.l3_ipv4_voting deny 192.168.0.3 =>
+table_add MyIngress.l3_ipv4_voting deny 192.168.0.4 =>

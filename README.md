@@ -48,7 +48,7 @@ Accetta:
 - traffico dalla porta tcp 120
 
 Vota No:
-
+- niente
 
 SWITCH S6:
 
@@ -58,7 +58,7 @@ Accetta:
 - traffico ipv6 da h4 a h3 (solo in questa direzione)
 
 Vota No:
-
+- niente
 
 Esempi:
 
@@ -131,4 +131,9 @@ Esempi:
 	Risposta:
 	- s1: deny\
 	Il pacchetto viene quindi scartato
+
+
+# Primo Progetto
+Il primo progetto di laboratorio è disponibile alla repository: https://github.com/kev187038/KatharaLab_1
+
 

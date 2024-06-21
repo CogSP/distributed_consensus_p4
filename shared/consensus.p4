@@ -54,6 +54,7 @@ header ipv6_t {
 
 header consensus_t {
     bit<8> accepted_number;
+    bit<8> denied_number;
     bit<8> proto_id;
 }
 
@@ -177,7 +178,9 @@ control MyIngress(inout headers hdr, inout metadata meta, inout standard_metadat
     // questo approccio conservativo porta la rete a rifiutare i pacchetti
     // per cui il grado di indecisione sulla malevolenza di questi è alto
     action deny(){
-        hdr.consensus.accepted_number = hdr.consensus.accepted_number - 1;
+        //log_msg("in deny accepted_number = {}", {hdr.consensus.accepted_number});
+        hdr.consensus.denied_number = hdr.consensus.denied_number + 1;
+        //log_msg("in deny accepted_number = {}", {hdr.consensus.accepted_number});
     }
 
     action drop() {
@@ -194,6 +197,8 @@ control MyIngress(inout headers hdr, inout metadata meta, inout standard_metadat
     action from_src_ipv4(){
         hdr.consensus.setValid();
 
+        hdr.consensus.accepted_number = 0;
+        hdr.consensus.denied_number = 0;
         // ipv4.protocol contiene il L4 header, che, considerando consensus come un
         // protocollo a metà tra IP e lo strato di trasporto
         // deve diventare il next header di consensus
@@ -204,10 +209,10 @@ control MyIngress(inout headers hdr, inout metadata meta, inout standard_metadat
 
     // per il pacchetto ipv4 che arriva allo switch di uscita 
     action ipv4_to_dest(bit<9> port){
-        // CONTROLLO SUI VOTI: se il contatore è maggiore di 0 la rete ha votato 
-        // per tenere il pacchetto, altrimenti il pacchetto viene droppato
-        bit<8> accepted_number = hdr.consensus.accepted_number;
-        meta.consensus = accepted_number > 0;
+        // CONTROLLO SUI VOTI: se il numero degli accettati è maggiore del numero di rifiuti
+        // la rete ha votato per tenere il pacchetto, altrimenti il pacchetto viene droppato
+       
+        meta.consensus = hdr.consensus.accepted_number >= hdr.consensus.denied_number;
 
         // l'header consensus viene rimosso
         hdr.ipv4.protocol = hdr.consensus.proto_id;
@@ -394,6 +399,7 @@ control MyIngress(inout headers hdr, inout metadata meta, inout standard_metadat
         }
         
         if(!hdr.consensus.isValid()) {
+            log_msg("meta.consensus = {}", {meta.consensus});
             if (meta.consensus == false) {
                 mark_to_drop(standard_metadata);
             }

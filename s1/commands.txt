@@ -14,15 +14,15 @@ table_add MyIngress.l2_voting accept 00:00:00:00:00:40 00:00:00:00:00:10 0x86DD 
 table_add MyIngress.l2_voting accept 00:00:00:00:00:20 00:00:00:00:00:40 0x86DD =>
 table_add MyIngress.l2_voting accept 00:00:00:00:00:40 00:00:00:00:00:20 0x86DD =>
 
-table_add MyIngress.l2_voting accept 00:00:00:00:00:10 00:00:00:00:00:20 0x8600 =>
+table_add MyIngress.l2_voting accept 00:00:00:00:00:10 00:00:00:00:00:20 0x0800 =>
 table_add MyIngress.l2_voting accept 00:00:00:00:00:10 00:00:00:00:00:20 0x86DD =>
 
 
 
-table_add MyIngress.l2_voting deny 00:00:00:00:00:10 00:00:00:00:00:30 0x8600 =>
-table_add MyIngress.l2_voting deny 00:00:00:00:00:30 00:00:00:00:00:10 0x8600 =>
+table_add MyIngress.l2_voting deny 00:00:00:00:00:10 00:00:00:00:00:30 0x0800 =>
+table_add MyIngress.l2_voting deny 00:00:00:00:00:30 00:00:00:00:00:10 0x0800 =>
 table_add MyIngress.l2_voting deny 00:00:00:00:00:10 00:00:00:00:00:30 0x86DD =>
 table_add MyIngress.l2_voting deny 00:00:00:00:00:30 00:00:00:00:00:10 0x86DD =>
 
-table_add MyIngress.l2_voting deny 00:00:00:00:00:20 00:00:00:00:00:40 0x8600 =>
-table_add MyIngress.l2_voting deny 00:00:00:00:00:40 00:00:00:00:00:20 0x8600 =>
+table_add MyIngress.l2_voting deny 00:00:00:00:00:20 00:00:00:00:00:40 0x0800 =>
+table_add MyIngress.l2_voting deny 00:00:00:00:00:40 00:00:00:00:00:20 0x0800 =>

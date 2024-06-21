@@ -212,7 +212,7 @@ control MyIngress(inout headers hdr, inout metadata meta, inout standard_metadat
         // CONTROLLO SUI VOTI: se il numero degli accettati è maggiore del numero di rifiuti
         // la rete ha votato per tenere il pacchetto, altrimenti il pacchetto viene droppato
        
-        meta.consensus = hdr.consensus.accepted_number >= hdr.consensus.denied_number;
+        meta.consensus = hdr.consensus.accepted_number > hdr.consensus.denied_number;
 
         // l'header consensus viene rimosso
         hdr.ipv4.protocol = hdr.consensus.proto_id;

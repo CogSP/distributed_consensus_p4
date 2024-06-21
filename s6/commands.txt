@@ -1,4 +1,4 @@
-table_add MyIngress.ipv4_forwarding ipv4_forward 192.168.0.1/32 => 2
+table_add MyIngress.ipv4_forwarding ipv4_forward 192.168.0.1/32 => 1
 table_add MyIngress.ipv4_forwarding ipv4_forward 192.168.0.2/32 => 2
 table_add MyIngress.ipv4_forwarding ipv4_forward 192.168.0.3/32 => 1
 table_add MyIngress.ipv4_forwarding ipv4_to_dest 192.168.0.4/32 => 3

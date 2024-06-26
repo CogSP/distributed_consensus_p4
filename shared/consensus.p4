@@ -238,7 +238,7 @@ control MyIngress(inout headers hdr, inout metadata meta, inout standard_metadat
     // per il pacchetto ipv6 che arriva allo switch di uscita 
     action ipv6_to_dest(bit<9> port){
         bit<8> accepted_number = hdr.consensus.accepted_number;
-        meta.consensus = accepted_number > 0;
+        meta.consensus = accepted_number > hdr.consensus.denied_number;
         hdr.ipv6.nextHeader = hdr.consensus.proto_id;
         hdr.consensus.setInvalid();
         hdr.ipv6.hoplim = hdr.ipv6.hoplim - 1;
